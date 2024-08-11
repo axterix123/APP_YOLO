@@ -4,12 +4,13 @@ import numpy as np
 from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen
 from PyQt5.QtCore import Qt, QPoint
+from ultralytics import YOLO
 
 class LineDrawingWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Dibujo de líneas de conteo")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 800, 650)
         self.initUI()
         self.lines = []
         self.drawing = False
@@ -22,12 +23,14 @@ class LineDrawingWindow(QMainWindow):
         layout = QVBoxLayout()
         
         # Botones
-        self.draw_button = QPushButton("Dibujar Línea", self)
+        self.draw_button = QPushButton("Dibujar línea", self)
         self.draw_button.clicked.connect(self.toggle_draw_line)
-        self.delete_button = QPushButton("Borrar Línea", self)
+        self.delete_button = QPushButton("Borrar línea", self)
         self.delete_button.clicked.connect(self.delete_line)
-        self.save_button = QPushButton("Guardar Líneas", self)
+        self.save_button = QPushButton("Guardar líneas", self)
         self.save_button.clicked.connect(self.save_lines)
+        self.start_button = QPushButton("Iniciar detección", self)
+        self.start_button.clicked.connect(self.run_tracking)
         
         # Imagen
         self.image_label = QLabel(self)
@@ -36,6 +39,7 @@ class LineDrawingWindow(QMainWindow):
         layout.addWidget(self.image_label)
         layout.addWidget(self.draw_button)
         layout.addWidget(self.save_button)
+        layout.addWidget(self.start_button)
         
         # Contenedor principal
         container = QWidget()
@@ -46,8 +50,10 @@ class LineDrawingWindow(QMainWindow):
         self.load_first_frame()
 
     def load_first_frame(self):
+        video_path = r"C:\Users\edwin\Documents\3 Personal\YOLO Project\YOLO\test\SS55-11-02-20231128-074311-20231128-075517.mp4"
+
         # Cargar el video y obtener el primer frame
-        cap = cv2.VideoCapture(r"C:\Users\dacan\OneDrive\Desktop\VIDEOS\2019-07-25 - Av. Prol. Tacna - Av. Samuel Alcazar.MOV")
+        cap = cv2.VideoCapture(video_path)
         ret, frame = cap.read()
         cap.release()
         
@@ -58,6 +64,27 @@ class LineDrawingWindow(QMainWindow):
             self.original_frame = resized_frame
             self.display_image(resized_frame)
         
+    def run_tracking(self):
+        model = YOLO(f"yolov10n.pt")
+        video_path = r"C:\Users\edwin\Documents\3 Personal\YOLO Project\YOLO\test\SS55-11-02-20231128-074311-20231128-075517.mp4"
+
+        cap = cv2.VideoCapture(video_path)
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            
+            if ret:
+                detection = model.track(frame, persist = True)
+                annotated_frame = detection[0].plot()
+                height, width = annotated_frame.shape[:2]
+                new_height = int((800 / width)*height)
+                resized_frame = cv2.resize(annotated_frame, (800, new_height)) #NOTE: Change size in the future detecting size of video
+                self.original_frame = resized_frame
+                self.display_image(resized_frame)
+                cv2.waitKey(1)
+            else:
+                break
+    
     def display_image(self, img):
         # Convertir la imagen de OpenCV a QImage
         rgb_image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
